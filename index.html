@@ -33,9 +33,15 @@ function doPost(e) {
   
   for (var j = 0; j < stocks.length; j++) {
     var stock = stocks[j];
+    
+    // ティッカーを必ず文字列に変換
+    var ticker = String(stock.ticker).trim();
+    if (!ticker || ticker === 'undefined') continue;
+    
     var found = false;
     for (var i = 1; i < data.length; i++) {
-      if (data[i][1] === stock.ticker) {
+      // スプレッドシート側も文字列に変換して比較
+      if (String(data[i][1]).trim() === ticker) {
         found = true;
         var prevSentiment = data[i][2];
         var newSentiment = stock.sentiment;
@@ -46,7 +52,7 @@ function doPost(e) {
         sheet.getRange(i+1, 7).setValue(Utilities.formatDate(new Date(), 'Asia/Tokyo', 'yyyy-MM-dd'));
         if (!currentPrice || currentPrice === 0 || prevSentiment !== newSentiment) {
           try {
-            var url = 'https://finnhub.io/api/v1/quote?symbol=' + stock.ticker + '&token=' + finnhubKey;
+            var url = 'https://finnhub.io/api/v1/quote?symbol=' + ticker + '&token=' + finnhubKey;
             var response = UrlFetchApp.fetch(url);
             var quote = JSON.parse(response.getContentText());
             if (quote.c && quote.c > 0) {
@@ -58,10 +64,11 @@ function doPost(e) {
         break;
       }
     }
+    
     if (!found) {
       var newRow = [
         stock.name || '',
-        stock.ticker || '',
+        ticker,
         stock.sentiment || '',
         Utilities.formatDate(new Date(), 'Asia/Tokyo', 'yyyy-MM-dd'),
         0, '',
@@ -70,7 +77,7 @@ function doPost(e) {
       ];
       sheet.appendRow(newRow);
       try {
-        var url = 'https://finnhub.io/api/v1/quote?symbol=' + stock.ticker + '&token=' + finnhubKey;
+        var url = 'https://finnhub.io/api/v1/quote?symbol=' + ticker + '&token=' + finnhubKey;
         var response = UrlFetchApp.fetch(url);
         var quote = JSON.parse(response.getContentText());
         if (quote.c && quote.c > 0) {
@@ -90,10 +97,11 @@ function doGet(e) {
   var data = sheet.getDataRange().getValues();
   var stocks = [];
   for (var i = 1; i < data.length; i++) {
-    if (data[i][1]) {
+    var ticker = String(data[i][1]).trim();
+    if (ticker && ticker !== 'undefined') {
       stocks.push({
         name: data[i][0],
-        ticker: String(data[i][1]),
+        ticker: ticker,
         sentiment: data[i][2] || 'neu',
         date: data[i][3] || '',
         basePrice: data[i][4] || 0,
