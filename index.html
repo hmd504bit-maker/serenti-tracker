@@ -6,68 +6,69 @@
 <title>Serenity 銘柄トラッカー</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
 <style>
+@import url('https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Syne:wght@600;700;800&display=swap');
 *{box-sizing:border-box;margin:0;padding:0}
-body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:#f5f5f5;color:#1a1a1a;max-width:480px;margin:0 auto}
-.header{background:#fff;padding:1rem;border-bottom:1px solid #e5e5e5;position:sticky;top:0;z-index:10}
+body{font-family:'DM Mono',monospace;background:#0a0a0f;color:#e8e8f0;max-width:480px;margin:0 auto;min-height:100vh}
+.header{background:#0a0a0f;padding:1rem;border-bottom:1px solid #1e1e2e;position:sticky;top:0;z-index:10}
 .header-top{display:flex;align-items:center;justify-content:space-between;margin-bottom:4px}
-.header-title{font-size:17px;font-weight:600;color:#1a1a1a}
-.header-sub{font-size:11px;color:#888}
-.live-dot{width:7px;height:7px;border-radius:50%;background:#1D9E75;display:inline-block;margin-right:5px;animation:pulse 2s infinite}
-@keyframes pulse{0%,100%{opacity:1}50%{opacity:0.3}}
-.refresh-btn{font-size:12px;padding:5px 12px;border-radius:20px;border:1px solid #ddd;background:#fff;color:#555;cursor:pointer;font-weight:500}
-.refresh-btn:active{background:#f0f0f0}
-.filter-row{display:flex;gap:6px;padding:10px 1rem;overflow-x:auto;background:#fff;border-bottom:1px solid #e5e5e5}
+.header-title{font-family:'Syne',sans-serif;font-size:17px;font-weight:800;color:#e8e8f0;letter-spacing:-0.5px}
+.header-sub{font-size:10px;color:#555;font-family:'DM Mono',monospace}
+.live-dot{width:7px;height:7px;border-radius:50%;background:#1D9E75;display:inline-block;margin-right:6px;animation:pulse 2s infinite;box-shadow:0 0 8px #1D9E75}
+@keyframes pulse{0%,100%{opacity:1;box-shadow:0 0 8px #1D9E75}50%{opacity:0.4;box-shadow:0 0 2px #1D9E75}}
+.refresh-btn{font-size:11px;padding:5px 12px;border-radius:4px;border:1px solid #2a2a3e;background:#12121c;color:#888;cursor:pointer;font-family:'DM Mono',monospace;transition:all 0.2s}
+.refresh-btn:hover{border-color:#1D9E75;color:#4ade80}
+.filter-row{display:flex;gap:6px;padding:10px 1rem;overflow-x:auto;background:#0a0a0f;border-bottom:1px solid #1e1e2e}
 .filter-row::-webkit-scrollbar{display:none}
-.filter-btn{font-size:12px;padding:5px 12px;border-radius:20px;border:1px solid #ddd;background:#fff;color:#888;cursor:pointer;white-space:nowrap;flex-shrink:0;font-weight:500}
-.filter-btn.on{background:#1a1a1a;color:#fff;border-color:#1a1a1a}
-.filter-btn.pos-on{background:#1D9E75;color:#fff;border-color:#1D9E75}
-.filter-btn.neg-on{background:#D85A30;color:#fff;border-color:#D85A30}
+.filter-btn{font-size:11px;padding:4px 10px;border-radius:4px;border:1px solid #2a2a3e;background:#12121c;color:#555;cursor:pointer;white-space:nowrap;flex-shrink:0;font-family:'DM Mono',monospace;transition:all 0.2s}
+.filter-btn.on{background:#0d1f14;color:#4ade80;border-color:#1D9E75}
+.filter-btn.pos-on{background:#0d1f14;color:#4ade80;border-color:#16a34a}
+.filter-btn.neg-on{background:#1f0d0d;color:#f87171;border-color:#dc2626}
 .summary-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:8px;padding:12px 1rem}
-.metric{background:#fff;border-radius:12px;padding:12px 14px;border:1px solid #e5e5e5}
-.ml{font-size:11px;color:#888;margin-bottom:3px}
-.mv{font-size:22px;font-weight:600;color:#1a1a1a}
-.up{color:#1D9E75}.dn{color:#D85A30}
+.metric{background:#12121c;border-radius:6px;padding:12px 14px;border:1px solid #1e1e2e}
+.ml{font-size:10px;color:#555;margin-bottom:4px;text-transform:uppercase;letter-spacing:1px}
+.mv{font-size:22px;font-weight:500;color:#e8e8f0;font-family:'Syne',sans-serif}
+.up{color:#4ade80}.dn{color:#f87171}
 .stock-list{padding:0 1rem 2rem}
-.stock-card{background:#fff;border:1px solid #e5e5e5;border-radius:14px;margin-bottom:10px;overflow:hidden}
+.stock-card{background:#12121c;border:1px solid #1e1e2e;border-radius:6px;margin-bottom:8px;overflow:hidden;transition:border-color 0.2s}
+.stock-card:hover{border-color:#2a2a3e}
 .card-main{display:flex;align-items:center;padding:14px;gap:10px;cursor:pointer}
 .card-left{flex:1;min-width:0}
-.card-name{font-size:14px;font-weight:600;color:#1a1a1a;margin-bottom:3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.card-ticker{font-size:11px;color:#888;display:flex;align-items:center;gap:4px}
+.card-name{font-family:'Syne',sans-serif;font-size:14px;font-weight:700;color:#e8e8f0;margin-bottom:4px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.card-ticker{font-size:10px;color:#555;display:flex;align-items:center;gap:6px;font-family:'DM Mono',monospace}
 .card-right{text-align:right;flex-shrink:0}
-.card-price{font-size:16px;font-weight:600;color:#1a1a1a}
-.card-change{font-size:12px;margin-top:2px;font-weight:500}
-.badge{display:inline-block;font-size:10px;padding:2px 7px;border-radius:20px;font-weight:600;margin-left:5px}
-.bp{background:#E1F5EE;color:#0F6E56}
-.bn{background:#FAECE7;color:#993C1D}
-.bne{background:#f5f5f5;color:#888}
-.realtime-badge{font-size:10px;padding:1px 5px;border-radius:10px;background:#E1F5EE;color:#0F6E56;font-weight:500}
-.mock-badge{font-size:10px;padding:1px 5px;border-radius:10px;background:#f5f5f5;color:#888;font-weight:500}
-.card-detail{display:none;padding:0 14px 14px;border-top:1px solid #f0f0f0}
+.card-price{font-size:16px;font-weight:500;color:#e8e8f0;font-family:'Syne',sans-serif}
+.card-change{font-size:11px;margin-top:2px;font-family:'DM Mono',monospace}
+.badge{display:inline-block;font-size:9px;padding:2px 6px;border-radius:3px;font-weight:500;margin-left:6px;font-family:'DM Mono',monospace;letter-spacing:0.5px}
+.bp{background:#0d1f14;color:#4ade80;border:1px solid #16a34a}
+.bn{background:#1f0d0d;color:#f87171;border:1px solid #dc2626}
+.bne{background:#1a1a2e;color:#888;border:1px solid #2a2a3e}
+.realtime-badge{font-size:9px;padding:1px 5px;border-radius:3px;background:#0d1f14;color:#4ade80;border:1px solid #1D9E75;font-family:'DM Mono',monospace}
+.mock-badge{font-size:9px;padding:1px 5px;border-radius:3px;background:#1a1a2e;color:#555;border:1px solid #2a2a3e;font-family:'DM Mono',monospace}
+.card-detail{display:none;padding:0 14px 14px;border-top:1px solid #1e1e2e}
 .card-detail.show{display:block}
-.detail-reason{font-size:12px;color:#666;background:#f9f9f9;border-radius:10px;padding:10px 12px;margin:12px 0 10px;line-height:1.7}
+.detail-reason{font-size:11px;color:#888;background:#0f0f1a;border-radius:4px;padding:10px 12px;margin:12px 0 10px;line-height:1.8;border-left:2px solid #1D9E75;font-family:'DM Mono',monospace}
 .chart-wrap{position:relative;width:100%;height:140px;margin-bottom:10px}
 .range-row{display:flex;gap:6px;margin-bottom:8px}
-.rb{font-size:11px;padding:3px 10px;border-radius:20px;border:1px solid #ddd;background:#fff;color:#888;cursor:pointer;font-weight:500}
-.rb.on{background:#1a1a1a;color:#fff;border-color:#1a1a1a}
+.rb{font-size:10px;padding:3px 10px;border-radius:4px;border:1px solid #2a2a3e;background:#0f0f1a;color:#555;cursor:pointer;font-family:'DM Mono',monospace;transition:all 0.2s}
+.rb.on{background:#0d1f14;color:#4ade80;border-color:#1D9E75}
 .detail-stats{display:grid;grid-template-columns:repeat(3,1fr);gap:6px;margin-bottom:8px}
-.stat{background:#f9f9f9;border-radius:10px;padding:8px;text-align:center}
-.stat-l{font-size:10px;color:#888;margin-bottom:3px}
-.stat-v{font-size:13px;font-weight:600;color:#1a1a1a}
-.mention-row{font-size:10px;color:#aaa;text-align:right;margin-top:6px}
-.loading-row{text-align:center;padding:2rem;font-size:13px;color:#888}
-.update-time{font-size:10px;color:#aaa;margin-top:2px}
+.stat{background:#0f0f1a;border-radius:4px;padding:8px;text-align:center;border:1px solid #1e1e2e}
+.stat-l{font-size:9px;color:#555;margin-bottom:3px;text-transform:uppercase;letter-spacing:0.5px}
+.stat-v{font-size:12px;font-weight:500;color:#e8e8f0;font-family:'Syne',sans-serif}
+.mention-row{font-size:10px;color:#444;text-align:right;margin-top:6px;font-family:'DM Mono',monospace}
+.loading-row{text-align:center;padding:3rem;font-size:12px;color:#555;font-family:'DM Mono',monospace}
+.loading-row::before{content:'> ';color:#1D9E75}
+.empty-row{text-align:center;padding:3rem;font-size:12px;color:#555;font-family:'DM Mono',monospace}
 </style>
 </head>
 <body>
-
 <div class="header">
   <div class="header-top">
     <span class="header-title"><span class="live-dot"></span>Serenity 銘柄トラッカー</span>
-    <button class="refresh-btn" onclick="loadAllPrices()">↻ 更新</button>
+    <button class="refresh-btn" onclick="init()">↻ 更新</button>
   </div>
-  <div class="header-sub" id="lastUpdate">@aleabitoreddit · 株価取得中...</div>
+  <div class="header-sub" id="lastUpdate">@aleabitoreddit · 読み込み中...</div>
 </div>
-
 <div class="filter-row">
   <button class="filter-btn on" onclick="setFilter('all',this)">すべて</button>
   <button class="filter-btn" onclick="setFilter('pos',this)">ポジティブ</button>
@@ -78,196 +79,34 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
   <button class="filter-btn" onclick="setFilter('up',this)">上昇中</button>
   <button class="filter-btn" onclick="setFilter('down',this)">下落中</button>
 </div>
-
 <div class="summary-grid">
-  <div class="metric"><div class="ml">追跡銘柄</div><div class="mv" id="sm-total">18</div></div>
+  <div class="metric"><div class="ml">追跡銘柄</div><div class="mv" id="sm-total">—</div></div>
   <div class="metric"><div class="ml">本日上昇</div><div class="mv up" id="sm-up">—</div></div>
   <div class="metric"><div class="ml">ポジティブ</div><div class="mv up" id="sm-pos">—</div></div>
   <div class="metric"><div class="ml">ネガティブ</div><div class="mv dn" id="sm-neg">—</div></div>
 </div>
-
 <div class="stock-list" id="stockList">
-  <div class="loading-row">株価データを取得中...</div>
+  <div class="loading-row">スプレッドシートからデータを取得中...</div>
 </div>
-
 <script>
-const API_KEY = 'd7s4rfhr01qm28g8b1r0d7s4rfhr01qm28g8b1rg';
-const BASE = 'https://finnhub.io/api/v1';
-
-const stocks = [
-  {id:1,name:'Sivers Semiconductors',ticker:'SIVE',finnhub:'SIVE',market:'us',sentiment:'pos',mentions:8,date:'2026-05-03',color:'#1D9E75',reason:'CPO向けCWレーザー光源のチョークポイント。$NVDA/$AMDが争奪戦。Tier1サプライヤーに昇格。Goldman TAM9倍予測の最大受益者。'},
-  {id:2,name:'AXT Inc',ticker:'AXTI',finnhub:'AXTI',market:'us',sentiment:'pos',mentions:6,date:'2026-04-30',color:'#378ADD',reason:'InPサプライチェーン40%以上を掌握。InPサブストレート・pBN坩堝・原材料まで全工程を支配。'},
-  {id:3,name:'Applied Optoelectronics',ticker:'AAOI',finnhub:'AAOI',market:'us',sentiment:'pos',mentions:4,date:'2026-05-03',color:'#534AB7',reason:'GoldmanレポートでSiPh/EMLレーザー光源の主要サプライヤーとして明記。'},
-  {id:4,name:'Lumentum',ticker:'LITE',finnhub:'LITE',market:'us',sentiment:'pos',mentions:5,date:'2026-05-03',color:'#0F6E56',reason:'レーザーチョークポイントの代表銘柄。$NVDA/$AMDがCapacity争奪。'},
-  {id:5,name:'Coherent',ticker:'COHR',finnhub:'COHR',market:'us',sentiment:'pos',mentions:5,date:'2026-05-03',color:'#185FA5',reason:'EML/SiPhレーザー光源で$LITEと並ぶ主要プレイヤー。$NVDAが$2B+支出でCapacityを確保。'},
-  {id:6,name:'Marvell Technology',ticker:'MRVL',finnhub:'MRVL',market:'us',sentiment:'pos',mentions:3,date:'2026-04-30',color:'#639922',reason:'CPO through Celestial（Nvidia契約済み）。AMD CPO・Ayarなど多方面でスケール。'},
-  {id:7,name:'Interactive Brokers',ticker:'IBKR',finnhub:'IBKR',market:'us',sentiment:'pos',mentions:1,date:'2026-05-03',color:'#0891B2',reason:'国際株投資にはRobinhoodより優れると強く推奨。'},
-  {id:8,name:'XLU 公益ETF',ticker:'XLU',finnhub:'XLU',market:'us',sentiment:'pos',mentions:1,date:'2026-04-28',color:'#BA7517',reason:'AI電力需要＋利下げで「一世代に一度の買い場」。OTMリープ推奨。'},
-  {id:9,name:'EWY 韓国株ETF',ticker:'EWY',finnhub:'EWY',market:'us',sentiment:'pos',mentions:1,date:'2026-04-25',color:'#7C3AED',reason:'マクロ・デリバティブ分析で高収益トレード。韓国/日本株が米株下落時のクッション。'},
-  {id:10,name:'NVIDIA',ticker:'NVDA',finnhub:'NVDA',market:'us',sentiment:'neu',mentions:4,date:'2026-05-04',color:'#6B7280',reason:'CPOサプライチェーンで$COHRと$LITEのCapacityを独占購入する立場として言及。直接の強気/弱気判断は今回なし。'},
-  {id:11,name:'Robinhood',ticker:'HOOD',finnhub:'HOOD',market:'us',sentiment:'neg',mentions:1,date:'2026-05-03',color:'#D85A30',reason:'国際株投資に使うべきでないと断言。Melania Coin統合など革新を放棄したと批判。'},
-  {id:12,name:'Solidion Technology',ticker:'SLNH',finnhub:'SLNH',market:'us',sentiment:'neg',mentions:2,date:'2026-04-30',color:'#991B1B',reason:'$500M ATMで希薄化を繰り返すクズ株。リテール投資家のポートフォリオを破壊し続けると強烈に警告。'},
-  {id:13,name:'Bakkt',ticker:'BKKT',finnhub:'BKKT',market:'us',sentiment:'neg',mentions:1,date:'2026-04-30',color:'#7F1D1D',reason:'$SLNHと同様の希薄化銘柄。絶対ロング不可と断言。'},
-  {id:14,name:'Furukawa Electric',ticker:'5801.T',finnhub:null,market:'jp',sentiment:'pos',mentions:2,date:'2026-05-03',color:'#2563EB',fallback:{price:3200,change:0.80,high52:3980,low52:2100},reason:'GoldmanレポートでSiPh/EMLレーザー光源の主要日本株サプライヤーとして言及。'},
-  {id:15,name:'Sumitomo Electric',ticker:'5802.T',finnhub:null,market:'jp',sentiment:'pos',mentions:2,date:'2026-05-03',color:'#7C3AED',fallback:{price:2800,change:0.60,high52:3400,low52:1900},reason:'AXTIとのInPサブストレート二社寡占。EML・SiPhでもGoldman報告書掲載。'},
-  {id:16,name:'TOWA',ticker:'6315.T',finnhub:null,market:'jp',sentiment:'pos',mentions:2,date:'2026-05-01',color:'#0F6E56',fallback:{price:4200,change:0.43,high52:5100,low52:2800},reason:'$MU・SK Hynix・Samsungから不可避的CAPEX流入。1.6T光トランシーバーレンズ量産開始。'},
-  {id:17,name:'Auros',ticker:'322310.KS',finnhub:null,market:'kr',sentiment:'pos',mentions:2,date:'2026-05-04',color:'#D97706',fallback:{price:12500,change:2.10,high52:16000,low52:6800},reason:'Samsung/SK Hynixの未知サプライヤー。HBM4 Hybrid Bonding Metrology。時価総額$269Mで著しく割安。'},
-  {id:18,name:'MSSCORP',ticker:'6830.KS',finnhub:null,market:'kr',sentiment:'pos',mentions:2,date:'2026-05-04',color:'#059669',fallback:{price:8200,change:1.50,high52:11000,low52:4500},reason:'CPO検査市場で90%シェア目標の事実上独占企業。$NVDA/$TSMのCPOランプに不可欠。'},
-];
-
-let priceData = {};
-let currentFilter = 'all';
-let expandedId = null;
-let chartInstances = {};
-let expandedRange = {};
-
-const fallbackPrices = {SIVE:4.82,AXTI:6.14,AAOI:22.47,LITE:68.30,COHR:82.15,MRVL:68.30,IBKR:42.50,XLU:82.15,EWY:61.40,NVDA:109.20,HOOD:18.50,SLNH:2.10,BKKT:1.80};
-
-async function fetchFinnhub(symbol) {
-  try {
-    const r = await fetch(`${BASE}/quote?symbol=${symbol}&token=${API_KEY}`);
-    const d = await r.json();
-    if (d.c && d.c > 0) return {price:d.c,change:d.dp||0,high52:d.h||d.c*1.2,low52:d.l||d.c*0.8,realtime:true};
-    return null;
-  } catch(e) { return null; }
-}
-
-async function loadAllPrices() {
-  document.getElementById('lastUpdate').textContent = '@aleabitoreddit · 株価取得中...';
-  for (const s of stocks.filter(s=>s.finnhub)) {
-    const data = await fetchFinnhub(s.finnhub);
-    priceData[s.id] = data || {price:fallbackPrices[s.finnhub]||10,change:(Math.random()-0.48)*4,high52:(fallbackPrices[s.finnhub]||10)*1.3,low52:(fallbackPrices[s.finnhub]||10)*0.7,realtime:false};
-    await new Promise(r=>setTimeout(r,120));
-  }
-  stocks.filter(s=>!s.finnhub).forEach(s=>{priceData[s.id]={...s.fallback,realtime:false};});
-  const now = new Date().toLocaleString('ja-JP',{month:'numeric',day:'numeric',hour:'numeric',minute:'numeric'});
-  document.getElementById('lastUpdate').textContent = `@aleabitoreddit · 更新 ${now}`;
-  renderList();
-}
-
-function genHistory(base,days,sent) {
-  let v=base*(0.88+Math.random()*0.06);
-  const arr=[];
-  for(let i=days;i>=0;i--){
-    const d=new Date();d.setDate(d.getDate()-i);
-    const bias=sent==='pos'?0.002:sent==='neg'?-0.001:0;
-    v=v*(1+bias+(Math.random()-0.48)*0.022);
-    arr.push({x:d.toLocaleDateString('ja-JP',{month:'numeric',day:'numeric'}),y:parseFloat(v.toFixed(2))});
-  }
-  arr[arr.length-1].y=base;
-  return arr;
-}
-
-function buildChart(id,stock,days) {
-  const p=priceData[stock.id];
-  if(!p) return;
-  const hist=genHistory(p.price,days,stock.sentiment);
-  const c=document.getElementById('dc-'+id);
-  if(!c) return;
-  if(chartInstances[id]) chartInstances[id].destroy();
-  chartInstances[id]=new Chart(c,{
-    type:'line',
-    data:{labels:hist.map(h=>h.x),datasets:[{data:hist.map(h=>h.y),borderColor:stock.color,backgroundColor:stock.color+'20',fill:true,tension:0.3,pointRadius:days<=7?3:1,borderWidth:2}]},
-    options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false},tooltip:{callbacks:{label:ctx=>`${ctx.parsed.y.toFixed(2)}`}}},scales:{x:{grid:{color:'rgba(0,0,0,0.05)'},ticks:{font:{size:9},maxTicksLimit:5,autoSkip:true}},y:{grid:{color:'rgba(0,0,0,0.05)'},ticks:{font:{size:9},callback:v=>v.toFixed(1)}}}}
-  });
-}
-
-function setRange(id,r,btn) {
-  expandedRange[id]=r;
-  document.querySelectorAll('.rb-'+id).forEach(b=>b.classList.remove('on'));
-  btn.classList.add('on');
-  setTimeout(()=>buildChart(id,stocks.find(s=>s.id===id),{1:7,2:30,3:90}[r]),50);
-}
-
-function filteredStocks() {
-  return stocks.filter(s=>{
-    const p=priceData[s.id];
-    if(currentFilter==='all') return true;
-    if(currentFilter==='pos') return s.sentiment==='pos';
-    if(currentFilter==='neg') return s.sentiment==='neg';
-    if(currentFilter==='us') return s.market==='us';
-    if(currentFilter==='jp') return s.market==='jp';
-    if(currentFilter==='kr') return s.market==='kr';
-    if(currentFilter==='up') return p&&p.change>0;
-    if(currentFilter==='down') return p&&p.change<0;
-    return true;
-  });
-}
-
-function setFilter(f,btn) {
-  currentFilter=f;
-  document.querySelectorAll('.filter-btn').forEach(b=>b.classList.remove('on','pos-on','neg-on'));
-  if(f==='pos') btn.classList.add('pos-on');
-  else if(f==='neg') btn.classList.add('neg-on');
-  else btn.classList.add('on');
-  renderList();
-}
-
-function toggleCard(id) {
-  expandedId=expandedId===id?null:id;
-  renderList();
-}
-
-function renderList() {
-  const list=filteredStocks();
-  const allP=stocks.filter(s=>priceData[s.id]);
-  document.getElementById('sm-total').textContent=stocks.length;
-  document.getElementById('sm-up').textContent=allP.filter(s=>priceData[s.id].change>0).length+'銘柄';
-  document.getElementById('sm-pos').textContent=stocks.filter(s=>s.sentiment==='pos').length+'銘柄';
-  document.getElementById('sm-neg').textContent=stocks.filter(s=>s.sentiment==='neg').length+'銘柄';
-
-  const sentLabel={pos:'ポジ',neg:'ネガ',neu:'中立'};
-  const badgeClass={pos:'bp',neg:'bn',neu:'bne'};
-  const sign={jp:'¥',kr:'₩',us:'$'};
-
-  document.getElementById('stockList').innerHTML=list.map(s=>{
-    const p=priceData[s.id];
-    const isExp=expandedId===s.id;
-    if(!p) return `<div class="stock-card"><div class="card-main"><div class="card-left"><div class="card-name">${s.name}</div><div class="card-ticker">${s.ticker}</div></div><div class="card-right" style="color:#aaa;font-size:12px">取得中...</div></div></div>`;
-    const cls=p.change>0?'up':'dn';
-    const arrow=p.change>0?'▲':'▼';
-    const cur=sign[s.market];
-    const priceStr=s.market==='us'?`${cur}${p.price.toFixed(2)}`:`${cur}${p.price.toLocaleString()}`;
-    const rtBadge=p.realtime?'<span class="realtime-badge">LIVE</span>':'<span class="mock-badge">参考値</span>';
-    const r=expandedRange[s.id]||1;
-
-    return `<div class="stock-card" id="card-${s.id}">
-      <div class="card-main" onclick="toggleCard(${s.id})">
-        <div class="card-left">
-          <div class="card-name">${s.name}<span class="badge ${badgeClass[s.sentiment]}">${sentLabel[s.sentiment]}</span></div>
-          <div class="card-ticker">${s.ticker} ${rtBadge}</div>
-        </div>
-        <div class="card-right">
-          <div class="card-price">${priceStr}</div>
-          <div class="card-change ${cls}">${arrow} ${Math.abs(p.change).toFixed(2)}%</div>
-        </div>
-      </div>
-      <div class="card-detail${isExp?' show':''}">
-        <div class="detail-reason">${s.reason}</div>
-        <div class="range-row">
-          <button class="rb rb-${s.id}${r===1?' on':''}" onclick="setRange(${s.id},1,this)">1週</button>
-          <button class="rb rb-${s.id}${r===2?' on':''}" onclick="setRange(${s.id},2,this)">1ヶ月</button>
-          <button class="rb rb-${s.id}${r===3?' on':''}" onclick="setRange(${s.id},3,this)">3ヶ月</button>
-        </div>
-        <div class="chart-wrap"><canvas id="dc-${s.id}" role="img" aria-label="${s.name}の株価チャート"></canvas></div>
-        <div class="detail-stats">
-          <div class="stat"><div class="stat-l">現在値</div><div class="stat-v">${priceStr}</div></div>
-          <div class="stat"><div class="stat-l">高値</div><div class="stat-v">${cur}${s.market==='us'?p.high52.toFixed(2):p.high52.toLocaleString()}</div></div>
-          <div class="stat"><div class="stat-l">安値</div><div class="stat-v">${cur}${s.market==='us'?p.low52.toFixed(2):p.low52.toLocaleString()}</div></div>
-        </div>
-        <div class="mention-row">言及 ${s.mentions}回 · 最終言及 ${s.date}</div>
-      </div>
-    </div>`;
-  }).join('');
-
-  setTimeout(()=>{
-    list.forEach(s=>{
-      if(expandedId===s.id&&priceData[s.id]) buildChart(s.id,s,{1:7,2:30,3:90}[expandedRange[s.id]||1]);
-    });
-  },50);
-}
-
-loadAllPrices();
+const GAS_URL='https://script.google.com/macros/s/AKfycbxNiXaH9CquL-orlfLkaiyW-lDsp7W-iCEvcR1dCx7FAH5zqe8QLp8oiEhvQ2nmGiFG/exec';
+const API_KEY='d7s4rfhr01qm28g8b1r0d7s4rfhr01qm28g8b1rg';
+const BASE='https://finnhub.io/api/v1';
+let stocks=[],priceData={},currentFilter='all',expandedId=null,chartInstances={},expandedRange={};
+function getMarket(t){if(t.endsWith('.T'))return 'jp';if(t.endsWith('.KS'))return 'kr';return 'us';}
+function getColor(s){if(s==='pos')return '#4ade80';if(s==='neg')return '#f87171';return '#1D9E75';}
+async function fetchGAS(){try{const r=await fetch(GAS_URL);return await r.json();}catch(e){return[];}}
+async function fetchFinnhub(symbol){try{const r=await fetch(`${BASE}/quote?symbol=${symbol}&token=${API_KEY}`);const d=await r.json();if(d.c&&d.c>0)return{price:d.c,change:d.dp||0,high52:d.h||d.c*1.2,low52:d.l||d.c*0.8,realtime:true};return null;}catch(e){return null;}}
+async function loadPrices(){for(const s of stocks){const market=getMarket(s.ticker);if(market==='us'){const data=await fetchFinnhub(s.ticker);priceData[s.ticker]=data||{price:s.basePrice||0,change:0,high52:0,low52:0,realtime:false};}else{priceData[s.ticker]={price:s.basePrice||0,change:0,high52:0,low52:0,realtime:false};}await new Promise(r=>setTimeout(r,120));}}
+async function init(){document.getElementById('stockList').innerHTML='<div class="loading-row">データを取得中...</div>';document.getElementById('lastUpdate').textContent='@aleabitoreddit · 読み込み中...';stocks=await fetchGAS();if(!stocks||stocks.length===0){document.getElementById('stockList').innerHTML='<div class="empty-row">銘柄データがありません。Makeシナリオを実行してください。</div>';return;}await loadPrices();const now=new Date().toLocaleString('ja-JP',{month:'numeric',day:'numeric',hour:'numeric',minute:'numeric'});document.getElementById('lastUpdate').textContent=`@aleabitoreddit · 更新 ${now}`;renderList();}
+function genHistory(base,days,sentiment){let v=base*(0.88+Math.random()*0.06);const arr=[];for(let i=days;i>=0;i--){const d=new Date();d.setDate(d.getDate()-i);const bias=sentiment==='pos'?0.002:sentiment==='neg'?-0.001:0;v=v*(1+bias+(Math.random()-0.48)*0.022);arr.push({x:d.toLocaleDateString('ja-JP',{month:'numeric',day:'numeric'}),y:parseFloat(v.toFixed(2))});}if(base>0)arr[arr.length-1].y=base;return arr;}
+function buildChart(ticker,stock,days){const p=priceData[ticker];if(!p||!p.price)return;const hist=genHistory(p.price,days,stock.sentiment);const c=document.getElementById('dc-'+ticker);if(!c)return;if(chartInstances[ticker])chartInstances[ticker].destroy();const color=getColor(stock.sentiment);chartInstances[ticker]=new Chart(c,{type:'line',data:{labels:hist.map(h=>h.x),datasets:[{data:hist.map(h=>h.y),borderColor:color,backgroundColor:color+'15',fill:true,tension:0.3,pointRadius:days<=7?2:0,borderWidth:1.5}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false},tooltip:{callbacks:{label:ctx=>`${ctx.parsed.y.toFixed(2)}`},backgroundColor:'#12121c',borderColor:'#2a2a3e',borderWidth:1,titleColor:'#888',bodyColor:'#e8e8f0'}},scales:{x:{grid:{color:'rgba(255,255,255,0.03)'},ticks:{color:'#444',font:{size:9,family:'DM Mono'},maxTicksLimit:5,autoSkip:true}},y:{grid:{color:'rgba(255,255,255,0.03)'},ticks:{color:'#444',font:{size:9,family:'DM Mono'},callback:v=>v.toFixed(1)}}}}});}
+function setRange(ticker,r,btn){expandedRange[ticker]=r;document.querySelectorAll('.rb-'+ticker).forEach(b=>b.classList.remove('on'));btn.classList.add('on');const stock=stocks.find(s=>s.ticker===ticker);setTimeout(()=>buildChart(ticker,stock,{1:7,2:30,3:90}[r]),50);}
+function filteredStocks(){return stocks.filter(s=>{const p=priceData[s.ticker];const market=getMarket(s.ticker);if(currentFilter==='all')return true;if(currentFilter==='pos')return s.sentiment==='pos';if(currentFilter==='neg')return s.sentiment==='neg';if(currentFilter==='us')return market==='us';if(currentFilter==='jp')return market==='jp';if(currentFilter==='kr')return market==='kr';if(currentFilter==='up')return p&&p.change>0;if(currentFilter==='down')return p&&p.change<0;return true;});}
+function setFilter(f,btn){currentFilter=f;document.querySelectorAll('.filter-btn').forEach(b=>b.classList.remove('on','pos-on','neg-on'));if(f==='pos')btn.classList.add('pos-on');else if(f==='neg')btn.classList.add('neg-on');else btn.classList.add('on');renderList();}
+function toggleCard(ticker){expandedId=expandedId===ticker?null:ticker;renderList();}
+function renderList(){const list=filteredStocks();const allP=stocks.filter(s=>priceData[s.ticker]);document.getElementById('sm-total').textContent=stocks.length;document.getElementById('sm-up').textContent=allP.filter(s=>priceData[s.ticker]&&priceData[s.ticker].change>0).length+'銘柄';document.getElementById('sm-pos').textContent=stocks.filter(s=>s.sentiment==='pos').length+'銘柄';document.getElementById('sm-neg').textContent=stocks.filter(s=>s.sentiment==='neg').length+'銘柄';const sentLabel={pos:'ポジ',neg:'ネガ',neu:'中立'};const badgeClass={pos:'bp',neg:'bn',neu:'bne'};const sign={jp:'¥',kr:'₩',us:'$'};if(list.length===0){document.getElementById('stockList').innerHTML='<div class="empty-row">該当する銘柄がありません</div>';return;}document.getElementById('stockList').innerHTML=list.map(s=>{const p=priceData[s.ticker];const isExp=expandedId===s.ticker;const market=getMarket(s.ticker);const cur=sign[market]||'$';if(!p||!p.price)return `<div class="stock-card"><div class="card-main"><div class="card-left"><div class="card-name">${s.name}<span class="badge ${badgeClass[s.sentiment]||'bne'}">${sentLabel[s.sentiment]||'—'}</span></div><div class="card-ticker">${s.ticker}</div></div><div class="card-right" style="color:#444;font-size:11px">取得中...</div></div></div>`;const cls=p.change>0?'up':'dn';const arrow=p.change>0?'▲':'▼';const priceStr=market==='us'?`${cur}${p.price.toFixed(2)}`:`${cur}${p.price.toLocaleString()}`;const rtBadge=p.realtime?'<span class="realtime-badge">LIVE</span>':'<span class="mock-badge">参考値</span>';const r=expandedRange[s.ticker]||1;return `<div class="stock-card" id="card-${s.ticker}"><div class="card-main" onclick="toggleCard('${s.ticker}')"><div class="card-left"><div class="card-name">${s.name}<span class="badge ${badgeClass[s.sentiment]||'bne'}">${sentLabel[s.sentiment]||'—'}</span></div><div class="card-ticker">${s.ticker} ${rtBadge}</div></div><div class="card-right"><div class="card-price">${priceStr}</div><div class="card-change ${cls}">${arrow} ${Math.abs(p.change).toFixed(2)}%</div></div></div><div class="card-detail${isExp?' show':''}"><div class="detail-reason">${s.reason||s.date||'—'}</div><div class="range-row"><button class="rb rb-${s.ticker}${r===1?' on':''}" onclick="setRange('${s.ticker}',1,this)">1週</button><button class="rb rb-${s.ticker}${r===2?' on':''}" onclick="setRange('${s.ticker}',2,this)">1ヶ月</button><button class="rb rb-${s.ticker}${r===3?' on':''}" onclick="setRange('${s.ticker}',3,this)">3ヶ月</button></div><div class="chart-wrap"><canvas id="dc-${s.ticker}"></canvas></div><div class="detail-stats"><div class="stat"><div class="stat-l">現在値</div><div class="stat-v">${priceStr}</div></div><div class="stat"><div class="stat-l">高値</div><div class="stat-v">${cur}${market==='us'?p.high52.toFixed(2):p.high52.toLocaleString()}</div></div><div class="stat"><div class="stat-l">安値</div><div class="stat-v">${cur}${market==='us'?p.low52.toFixed(2):p.low52.toLocaleString()}</div></div></div><div class="mention-row">最終更新 ${s.updatedAt||s.date||'—'}</div></div></div>`;}).join('');setTimeout(()=>{list.forEach(s=>{if(expandedId===s.ticker&&priceData[s.ticker])buildChart(s.ticker,s,{1:7,2:30,3:90}[expandedRange[s.ticker]||1]);});},50);}
+init();
 </script>
 </body>
 </html>
