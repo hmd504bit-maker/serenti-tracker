@@ -1,117 +1,112 @@
-function doPost(e) {
-  var raw = e.postData.contents;
-  var decoded = decodeURIComponent(raw.replace(/^data=/, ''));
-  
-  decoded = decoded.replace(/\u201c|\u201d|\u300c|\u300d|&quot;/g, '"');
-  decoded = decoded.replace(/&#39;/g, "'");
-  
-  var jsonMatch = decoded.match(/\[\s*\{[\s\S]*?\}\s*\]/);
-  var postMatch = decoded.match(/POST_START\s*([\s\S]*?)\s*POST_END/);
-  
-  if (!jsonMatch) {
-    return ContentService.createTextOutput('投稿文なし');
-  }
-  
-  var jsonStr = jsonMatch[0].replace(/\+\+/g, '').trim();
-  
-  try {
-    var stocks = JSON.parse(jsonStr);
-  } catch(err) {
-    return ContentService.createTextOutput('投稿文なし');
-  }
-  
-  var postText = postMatch ? postMatch[1].trim() : '';
-  
-  if (postText.length > 140) {
-    postText = postText.substring(0, 137) + '...';
-  }
-  
-  var ss = SpreadsheetApp.openById('1oRxzcmRph242ZhSJ6Wz3di71U1Dz-ELLBkGeGV8GaIw');
-  var sheet = ss.getActiveSheet();
-  var data = sheet.getDataRange().getValues();
-  var finnhubKey = 'd7s4rfhr01qm28g8b1r0d7s4rfhr01qm28g8b1rg';
-  
-  for (var j = 0; j < stocks.length; j++) {
-    var stock = stocks[j];
-    
-    // ティッカーを必ず文字列に変換
-    var ticker = String(stock.ticker).trim();
-    if (!ticker || ticker === 'undefined') continue;
-    
-    var found = false;
-    for (var i = 1; i < data.length; i++) {
-      // スプレッドシート側も文字列に変換して比較
-      if (String(data[i][1]).trim() === ticker) {
-        found = true;
-        var prevSentiment = data[i][2];
-        var newSentiment = stock.sentiment;
-        var currentPrice = data[i][4];
-        sheet.getRange(i+1, 6).setValue(prevSentiment);
-        sheet.getRange(i+1, 3).setValue(newSentiment);
-        sheet.getRange(i+1, 4).setValue(Utilities.formatDate(new Date(), 'Asia/Tokyo', 'yyyy-MM-dd'));
-        sheet.getRange(i+1, 7).setValue(Utilities.formatDate(new Date(), 'Asia/Tokyo', 'yyyy-MM-dd'));
-        if (!currentPrice || currentPrice === 0 || prevSentiment !== newSentiment) {
-          try {
-            var url = 'https://finnhub.io/api/v1/quote?symbol=' + ticker + '&token=' + finnhubKey;
-            var response = UrlFetchApp.fetch(url);
-            var quote = JSON.parse(response.getContentText());
-            if (quote.c && quote.c > 0) {
-              sheet.getRange(i+1, 5).setValue(quote.c);
-              sheet.getRange(i+1, 8).setValue(Utilities.formatDate(new Date(), 'Asia/Tokyo', 'yyyy-MM-dd'));
-            }
-          } catch(err) {}
-        }
-        break;
-      }
-    }
-    
-    if (!found) {
-      var newRow = [
-        stock.name || '',
-        ticker,
-        stock.sentiment || '',
-        Utilities.formatDate(new Date(), 'Asia/Tokyo', 'yyyy-MM-dd'),
-        0, '',
-        Utilities.formatDate(new Date(), 'Asia/Tokyo', 'yyyy-MM-dd'),
-        ''
-      ];
-      sheet.appendRow(newRow);
-      try {
-        var url = 'https://finnhub.io/api/v1/quote?symbol=' + ticker + '&token=' + finnhubKey;
-        var response = UrlFetchApp.fetch(url);
-        var quote = JSON.parse(response.getContentText());
-        if (quote.c && quote.c > 0) {
-          var lastRow = sheet.getLastRow();
-          sheet.getRange(lastRow, 5).setValue(quote.c);
-          sheet.getRange(lastRow, 8).setValue(Utilities.formatDate(new Date(), 'Asia/Tokyo', 'yyyy-MM-dd'));
-        }
-      } catch(err) {}
-    }
-  }
-  return ContentService.createTextOutput(postText);
-}
-
-function doGet(e) {
-  var ss = SpreadsheetApp.openById('1oRxzcmRph242ZhSJ6Wz3di71U1Dz-ELLBkGeGV8GaIw');
-  var sheet = ss.getActiveSheet();
-  var data = sheet.getDataRange().getValues();
-  var stocks = [];
-  for (var i = 1; i < data.length; i++) {
-    var ticker = String(data[i][1]).trim();
-    if (ticker && ticker !== 'undefined') {
-      stocks.push({
-        name: data[i][0],
-        ticker: ticker,
-        sentiment: data[i][2] || 'neu',
-        date: data[i][3] || '',
-        basePrice: data[i][4] || 0,
-        prevSentiment: data[i][5] || '',
-        updatedAt: data[i][6] || '',
-        basePriceDate: data[i][7] || ''
-      });
-    }
-  }
-  var output = ContentService.createTextOutput(JSON.stringify(stocks));
-  output.setMimeType(ContentService.MimeType.JSON);
-  return output;
-}
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Serenity 銘柄トラッカー</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Syne:wght@600;700;800&display=swap');
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:'DM Mono',monospace;background:#0a0a0f;color:#e8e8f0;max-width:480px;margin:0 auto;min-height:100vh}
+.header{background:#0a0a0f;padding:1rem;border-bottom:1px solid #1e1e2e;position:sticky;top:0;z-index:10}
+.header-top{display:flex;align-items:center;justify-content:space-between;margin-bottom:4px}
+.header-title{font-family:'Syne',sans-serif;font-size:17px;font-weight:800;color:#e8e8f0;letter-spacing:-0.5px}
+.header-sub{font-size:10px;color:#555;font-family:'DM Mono',monospace}
+.live-dot{width:7px;height:7px;border-radius:50%;background:#1D9E75;display:inline-block;margin-right:6px;animation:pulse 2s infinite;box-shadow:0 0 8px #1D9E75}
+@keyframes pulse{0%,100%{opacity:1;box-shadow:0 0 8px #1D9E75}50%{opacity:0.4;box-shadow:0 0 2px #1D9E75}}
+.refresh-btn{font-size:11px;padding:5px 12px;border-radius:4px;border:1px solid #2a2a3e;background:#12121c;color:#888;cursor:pointer;font-family:'DM Mono',monospace;transition:all 0.2s}
+.refresh-btn:hover{border-color:#1D9E75;color:#4ade80}
+.filter-row{display:flex;gap:6px;padding:10px 1rem;overflow-x:auto;background:#0a0a0f;border-bottom:1px solid #1e1e2e}
+.filter-row::-webkit-scrollbar{display:none}
+.filter-btn{font-size:11px;padding:4px 10px;border-radius:4px;border:1px solid #2a2a3e;background:#12121c;color:#555;cursor:pointer;white-space:nowrap;flex-shrink:0;font-family:'DM Mono',monospace;transition:all 0.2s}
+.filter-btn.on{background:#0d1f14;color:#4ade80;border-color:#1D9E75}
+.filter-btn.pos-on{background:#0d1f14;color:#4ade80;border-color:#16a34a}
+.filter-btn.neg-on{background:#1f0d0d;color:#f87171;border-color:#dc2626}
+.summary-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:8px;padding:12px 1rem}
+.metric{background:#12121c;border-radius:6px;padding:12px 14px;border:1px solid #1e1e2e}
+.ml{font-size:10px;color:#555;margin-bottom:4px;text-transform:uppercase;letter-spacing:1px}
+.mv{font-size:22px;font-weight:500;color:#e8e8f0;font-family:'Syne',sans-serif}
+.up{color:#4ade80}.dn{color:#f87171}
+.stock-list{padding:0 1rem 2rem}
+.stock-card{background:#12121c;border:1px solid #1e1e2e;border-radius:6px;margin-bottom:8px;overflow:hidden;transition:border-color 0.2s}
+.stock-card:hover{border-color:#2a2a3e}
+.card-main{display:flex;align-items:center;padding:14px;gap:10px;cursor:pointer}
+.card-left{flex:1;min-width:0}
+.card-name{font-family:'Syne',sans-serif;font-size:14px;font-weight:700;color:#e8e8f0;margin-bottom:4px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.card-ticker{font-size:10px;color:#555;display:flex;align-items:center;gap:6px;font-family:'DM Mono',monospace}
+.card-right{text-align:right;flex-shrink:0}
+.card-price{font-size:16px;font-weight:500;color:#e8e8f0;font-family:'Syne',sans-serif}
+.card-change{font-size:11px;margin-top:2px;font-family:'DM Mono',monospace}
+.badge{display:inline-block;font-size:9px;padding:2px 6px;border-radius:3px;font-weight:500;margin-left:6px;font-family:'DM Mono',monospace;letter-spacing:0.5px}
+.bp{background:#0d1f14;color:#4ade80;border:1px solid #16a34a}
+.bn{background:#1f0d0d;color:#f87171;border:1px solid #dc2626}
+.bne{background:#1a1a2e;color:#888;border:1px solid #2a2a3e}
+.realtime-badge{font-size:9px;padding:1px 5px;border-radius:3px;background:#0d1f14;color:#4ade80;border:1px solid #1D9E75;font-family:'DM Mono',monospace}
+.mock-badge{font-size:9px;padding:1px 5px;border-radius:3px;background:#1a1a2e;color:#555;border:1px solid #2a2a3e;font-family:'DM Mono',monospace}
+.card-detail{display:none;padding:0 14px 14px;border-top:1px solid #1e1e2e}
+.card-detail.show{display:block}
+.detail-reason{font-size:11px;color:#888;background:#0f0f1a;border-radius:4px;padding:10px 12px;margin:12px 0 10px;line-height:1.8;border-left:2px solid #1D9E75;font-family:'DM Mono',monospace}
+.chart-wrap{position:relative;width:100%;height:140px;margin-bottom:10px}
+.range-row{display:flex;gap:6px;margin-bottom:8px}
+.rb{font-size:10px;padding:3px 10px;border-radius:4px;border:1px solid #2a2a3e;background:#0f0f1a;color:#555;cursor:pointer;font-family:'DM Mono',monospace;transition:all 0.2s}
+.rb.on{background:#0d1f14;color:#4ade80;border-color:#1D9E75}
+.detail-stats{display:grid;grid-template-columns:repeat(3,1fr);gap:6px;margin-bottom:8px}
+.stat{background:#0f0f1a;border-radius:4px;padding:8px;text-align:center;border:1px solid #1e1e2e}
+.stat-l{font-size:9px;color:#555;margin-bottom:3px;text-transform:uppercase;letter-spacing:0.5px}
+.stat-v{font-size:12px;font-weight:500;color:#e8e8f0;font-family:'Syne',sans-serif}
+.mention-row{font-size:10px;color:#444;text-align:right;margin-top:6px;font-family:'DM Mono',monospace}
+.loading-row{text-align:center;padding:3rem;font-size:12px;color:#555;font-family:'DM Mono',monospace}
+.loading-row::before{content:'> ';color:#1D9E75}
+.empty-row{text-align:center;padding:3rem;font-size:12px;color:#555;font-family:'DM Mono',monospace}
+</style>
+</head>
+<body>
+<div class="header">
+  <div class="header-top">
+    <span class="header-title"><span class="live-dot"></span>Serenity 銘柄トラッカー</span>
+    <button class="refresh-btn" onclick="init()">↻ 更新</button>
+  </div>
+  <div class="header-sub" id="lastUpdate">@aleabitoreddit · 読み込み中...</div>
+</div>
+<div class="filter-row">
+  <button class="filter-btn on" onclick="setFilter('all',this)">すべて</button>
+  <button class="filter-btn" onclick="setFilter('pos',this)">ポジティブ</button>
+  <button class="filter-btn" onclick="setFilter('neg',this)">ネガティブ</button>
+  <button class="filter-btn" onclick="setFilter('us',this)">米国株</button>
+  <button class="filter-btn" onclick="setFilter('jp',this)">日本株</button>
+  <button class="filter-btn" onclick="setFilter('kr',this)">韓国株</button>
+  <button class="filter-btn" onclick="setFilter('up',this)">上昇中</button>
+  <button class="filter-btn" onclick="setFilter('down',this)">下落中</button>
+</div>
+<div class="summary-grid">
+  <div class="metric"><div class="ml">追跡銘柄</div><div class="mv" id="sm-total">—</div></div>
+  <div class="metric"><div class="ml">本日上昇</div><div class="mv up" id="sm-up">—</div></div>
+  <div class="metric"><div class="ml">ポジティブ</div><div class="mv up" id="sm-pos">—</div></div>
+  <div class="metric"><div class="ml">ネガティブ</div><div class="mv dn" id="sm-neg">—</div></div>
+</div>
+<div class="stock-list" id="stockList">
+  <div class="loading-row">スプレッドシートからデータを取得中...</div>
+</div>
+<script>
+const GAS_URL='https://script.google.com/macros/s/AKfycbxNiXaH9CquL-orlfLkaiyW-lDsp7W-iCEvcR1dCx7FAH5zqe8QLp8oiEhvQ2nmGiFG/exec';
+const API_KEY='d7s4rfhr01qm28g8b1r0d7s4rfhr01qm28g8b1rg';
+const BASE='https://finnhub.io/api/v1';
+let stocks=[],priceData={},currentFilter='all',expandedId=null,chartInstances={},expandedRange={};
+function getMarket(t){if(t.endsWith('.T'))return 'jp';if(t.endsWith('.KS'))return 'kr';return 'us';}
+function getColor(s){if(s==='pos')return '#4ade80';if(s==='neg')return '#f87171';return '#1D9E75';}
+async function fetchGAS(){try{const r=await fetch(GAS_URL);return await r.json();}catch(e){return[];}}
+async function fetchFinnhub(symbol){try{const r=await fetch(`${BASE}/quote?symbol=${symbol}&token=${API_KEY}`);const d=await r.json();if(d.c&&d.c>0)return{price:d.c,change:d.dp||0,high52:d.h||d.c*1.2,low52:d.l||d.c*0.8,realtime:true};return null;}catch(e){return null;}}
+async function loadPrices(){for(const s of stocks){const market=getMarket(s.ticker);if(market==='us'){const data=await fetchFinnhub(s.ticker);priceData[s.ticker]=data||{price:s.basePrice||0,change:0,high52:0,low52:0,realtime:false};}else{priceData[s.ticker]={price:s.basePrice||0,change:0,high52:0,low52:0,realtime:false};}await new Promise(r=>setTimeout(r,120));}}
+async function init(){document.getElementById('stockList').innerHTML='<div class="loading-row">データを取得中...</div>';document.getElementById('lastUpdate').textContent='@aleabitoreddit · 読み込み中...';stocks=await fetchGAS();if(!stocks||stocks.length===0){document.getElementById('stockList').innerHTML='<div class="empty-row">銘柄データがありません。Makeシナリオを実行してください。</div>';return;}await loadPrices();const now=new Date().toLocaleString('ja-JP',{month:'numeric',day:'numeric',hour:'numeric',minute:'numeric'});document.getElementById('lastUpdate').textContent=`@aleabitoreddit · 更新 ${now}`;renderList();}
+function genHistory(base,days,sentiment){let v=base*(0.88+Math.random()*0.06);const arr=[];for(let i=days;i>=0;i--){const d=new Date();d.setDate(d.getDate()-i);const bias=sentiment==='pos'?0.002:sentiment==='neg'?-0.001:0;v=v*(1+bias+(Math.random()-0.48)*0.022);arr.push({x:d.toLocaleDateString('ja-JP',{month:'numeric',day:'numeric'}),y:parseFloat(v.toFixed(2))});}if(base>0)arr[arr.length-1].y=base;return arr;}
+function buildChart(ticker,stock,days){const p=priceData[ticker];if(!p||!p.price)return;const hist=genHistory(p.price,days,stock.sentiment);const c=document.getElementById('dc-'+ticker);if(!c)return;if(chartInstances[ticker])chartInstances[ticker].destroy();const color=getColor(stock.sentiment);chartInstances[ticker]=new Chart(c,{type:'line',data:{labels:hist.map(h=>h.x),datasets:[{data:hist.map(h=>h.y),borderColor:color,backgroundColor:color+'15',fill:true,tension:0.3,pointRadius:days<=7?2:0,borderWidth:1.5}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false},tooltip:{callbacks:{label:ctx=>`${ctx.parsed.y.toFixed(2)}`},backgroundColor:'#12121c',borderColor:'#2a2a3e',borderWidth:1,titleColor:'#888',bodyColor:'#e8e8f0'}},scales:{x:{grid:{color:'rgba(255,255,255,0.03)'},ticks:{color:'#444',font:{size:9,family:'DM Mono'},maxTicksLimit:5,autoSkip:true}},y:{grid:{color:'rgba(255,255,255,0.03)'},ticks:{color:'#444',font:{size:9,family:'DM Mono'},callback:v=>v.toFixed(1)}}}}});}
+function setRange(ticker,r,btn){expandedRange[ticker]=r;document.querySelectorAll('.rb-'+ticker).forEach(b=>b.classList.remove('on'));btn.classList.add('on');const stock=stocks.find(s=>s.ticker===ticker);setTimeout(()=>buildChart(ticker,stock,{1:7,2:30,3:90}[r]),50);}
+function filteredStocks(){return stocks.filter(s=>{const p=priceData[s.ticker];const market=getMarket(s.ticker);if(currentFilter==='all')return true;if(currentFilter==='pos')return s.sentiment==='pos';if(currentFilter==='neg')return s.sentiment==='neg';if(currentFilter==='us')return market==='us';if(currentFilter==='jp')return market==='jp';if(currentFilter==='kr')return market==='kr';if(currentFilter==='up')return p&&p.change>0;if(currentFilter==='down')return p&&p.change<0;return true;});}
+function setFilter(f,btn){currentFilter=f;document.querySelectorAll('.filter-btn').forEach(b=>b.classList.remove('on','pos-on','neg-on'));if(f==='pos')btn.classList.add('pos-on');else if(f==='neg')btn.classList.add('neg-on');else btn.classList.add('on');renderList();}
+function toggleCard(ticker){expandedId=expandedId===ticker?null:ticker;renderList();}
+function renderList(){const list=filteredStocks();const allP=stocks.filter(s=>priceData[s.ticker]);document.getElementById('sm-total').textContent=stocks.length;document.getElementById('sm-up').textContent=allP.filter(s=>priceData[s.ticker]&&priceData[s.ticker].change>0).length+'銘柄';document.getElementById('sm-pos').textContent=stocks.filter(s=>s.sentiment==='pos').length+'銘柄';document.getElementById('sm-neg').textContent=stocks.filter(s=>s.sentiment==='neg').length+'銘柄';const sentLabel={pos:'ポジ',neg:'ネガ',neu:'中立'};const badgeClass={pos:'bp',neg:'bn',neu:'bne'};const sign={jp:'¥',kr:'₩',us:'$'};if(list.length===0){document.getElementById('stockList').innerHTML='<div class="empty-row">該当する銘柄がありません</div>';return;}document.getElementById('stockList').innerHTML=list.map(s=>{const p=priceData[s.ticker];const isExp=expandedId===s.ticker;const market=getMarket(s.ticker);const cur=sign[market]||'$';if(!p||!p.price)return `<div class="stock-card"><div class="card-main"><div class="card-left"><div class="card-name">${s.name}<span class="badge ${badgeClass[s.sentiment]||'bne'}">${sentLabel[s.sentiment]||'—'}</span></div><div class="card-ticker">${s.ticker}</div></div><div class="card-right" style="color:#444;font-size:11px">取得中...</div></div></div>`;const cls=p.change>0?'up':'dn';const arrow=p.change>0?'▲':'▼';const priceStr=market==='us'?`${cur}${p.price.toFixed(2)}`:`${cur}${p.price.toLocaleString()}`;const rtBadge=p.realtime?'<span class="realtime-badge">LIVE</span>':'<span class="mock-badge">参考値</span>';const r=expandedRange[s.ticker]||1;return `<div class="stock-card" id="card-${s.ticker}"><div class="card-main" onclick="toggleCard('${s.ticker}')"><div class="card-left"><div class="card-name">${s.name}<span class="badge ${badgeClass[s.sentiment]||'bne'}">${sentLabel[s.sentiment]||'—'}</span></div><div class="card-ticker">${s.ticker} ${rtBadge}</div></div><div class="card-right"><div class="card-price">${priceStr}</div><div class="card-change ${cls}">${arrow} ${Math.abs(p.change).toFixed(2)}%</div></div></div><div class="card-detail${isExp?' show':''}"><div class="detail-reason">${s.reason||s.date||'—'}</div><div class="range-row"><button class="rb rb-${s.ticker}${r===1?' on':''}" onclick="setRange('${s.ticker}',1,this)">1週</button><button class="rb rb-${s.ticker}${r===2?' on':''}" onclick="setRange('${s.ticker}',2,this)">1ヶ月</button><button class="rb rb-${s.ticker}${r===3?' on':''}" onclick="setRange('${s.ticker}',3,this)">3ヶ月</button></div><div class="chart-wrap"><canvas id="dc-${s.ticker}"></canvas></div><div class="detail-stats"><div class="stat"><div class="stat-l">現在値</div><div class="stat-v">${priceStr}</div></div><div class="stat"><div class="stat-l">高値</div><div class="stat-v">${cur}${market==='us'?p.high52.toFixed(2):p.high52.toLocaleString()}</div></div><div class="stat"><div class="stat-l">安値</div><div class="stat-v">${cur}${market==='us'?p.low52.toFixed(2):p.low52.toLocaleString()}</div></div></div><div class="mention-row">最終更新 ${s.updatedAt||s.date||'—'}</div></div></div>`;}).join('');setTimeout(()=>{list.forEach(s=>{if(expandedId===s.ticker&&priceData[s.ticker])buildChart(s.ticker,s,{1:7,2:30,3:90}[expandedRange[s.ticker]||1]);});},50);}
+init();
+</script>
+</body>
+</html>
