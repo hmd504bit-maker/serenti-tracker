@@ -95,12 +95,66 @@ const BASE='https://finnhub.io/api/v1';
 let stocks=[],priceData={},currentFilter='all',expandedId=null,chartInstances={},expandedRange={};
 function getMarket(t){if(t.endsWith('.T'))return 'jp';if(t.endsWith('.KS'))return 'kr';return 'us';}
 function getColor(s){if(s==='pos')return '#4ade80';if(s==='neg')return '#f87171';return '#1D9E75';}
-async function fetchGAS(){try{const r=await fetch(GAS_URL);return await r.json();}catch(e){return[];}}
+async function fetchGAS(){try{const r=await fetch(GAS_URL);const data=await r.json();return data.filter(s=>s.ticker&&typeof s.ticker==='string');}catch(e){return[];}}
 async function fetchFinnhub(symbol){try{const r=await fetch(`${BASE}/quote?symbol=${symbol}&token=${API_KEY}`);const d=await r.json();if(d.c&&d.c>0)return{price:d.c,change:d.dp||0,high52:d.h||d.c*1.2,low52:d.l||d.c*0.8,realtime:true};return null;}catch(e){return null;}}
 async function loadPrices(){for(const s of stocks){const market=getMarket(s.ticker);if(market==='us'){const data=await fetchFinnhub(s.ticker);priceData[s.ticker]=data||{price:s.basePrice||0,change:0,high52:0,low52:0,realtime:false};}else{priceData[s.ticker]={price:s.basePrice||0,change:0,high52:0,low52:0,realtime:false};}await new Promise(r=>setTimeout(r,120));}}
 async function init(){document.getElementById('stockList').innerHTML='<div class="loading-row">データを取得中...</div>';document.getElementById('lastUpdate').textContent='@aleabitoreddit · 読み込み中...';stocks=await fetchGAS();if(!stocks||stocks.length===0){document.getElementById('stockList').innerHTML='<div class="empty-row">銘柄データがありません。Makeシナリオを実行してください。</div>';return;}await loadPrices();const now=new Date().toLocaleString('ja-JP',{month:'numeric',day:'numeric',hour:'numeric',minute:'numeric'});document.getElementById('lastUpdate').textContent=`@aleabitoreddit · 更新 ${now}`;renderList();}
 function genHistory(base,days,sentiment){let v=base*(0.88+Math.random()*0.06);const arr=[];for(let i=days;i>=0;i--){const d=new Date();d.setDate(d.getDate()-i);const bias=sentiment==='pos'?0.002:sentiment==='neg'?-0.001:0;v=v*(1+bias+(Math.random()-0.48)*0.022);arr.push({x:d.toLocaleDateString('ja-JP',{month:'numeric',day:'numeric'}),y:parseFloat(v.toFixed(2))});}if(base>0)arr[arr.length-1].y=base;return arr;}
-function buildChart(ticker,stock,days){const p=priceData[ticker];if(!p||!p.price)return;const hist=genHistory(p.price,days,stock.sentiment);const c=document.getElementById('dc-'+ticker);if(!c)return;if(chartInstances[ticker])chartInstances[ticker].destroy();const color=getColor(stock.sentiment);chartInstances[ticker]=new Chart(c,{type:'line',data:{labels:hist.map(h=>h.x),datasets:[{data:hist.map(h=>h.y),borderColor:color,backgroundColor:color+'15',fill:true,tension:0.3,pointRadius:days<=7?2:0,borderWidth:1.5}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false},tooltip:{callbacks:{label:ctx=>`${ctx.parsed.y.toFixed(2)}`},backgroundColor:'#12121c',borderColor:'#2a2a3e',borderWidth:1,titleColor:'#888',bodyColor:'#e8e8f0'}},scales:{x:{grid:{color:'rgba(255,255,255,0.03)'},ticks:{color:'#444',font:{size:9,family:'DM Mono'},maxTicksLimit:5,autoSkip:true}},y:{grid:{color:'rgba(255,255,255,0.03)'},ticks:{color:'#444',font:{size:9,family:'DM Mono'},callback:v=>v.toFixed(1)}}}}});}
+function buildChart(ticker,stock,days){
+  const p=priceData[ticker];if(!p||!p.price)return;
+  const hist=genHistory(p.price,days,stock.sentiment);
+  const c=document.getElementById('dc-'+ticker);if(!c)return;
+  if(chartInstances[ticker])chartInstances[ticker].destroy();
+  const color=getColor(stock.sentiment);
+  const tweetDate=stock.date?new Date(stock.date).toLocaleDateString('ja-JP',{month:'numeric',day:'numeric'}):null;
+  const tweetIndex=tweetDate?hist.findIndex(h=>h.x===tweetDate):-1;
+  chartInstances[ticker]=new Chart(c,{
+    type:'line',
+    data:{labels:hist.map(h=>h.x),datasets:[{
+      data:hist.map(h=>h.y),
+      borderColor:color,
+      backgroundColor:color+'15',
+      fill:true,tension:0.3,
+      pointRadius:hist.map((_,i)=>i===tweetIndex?6:days<=7?2:0),
+      pointBackgroundColor:hist.map((_,i)=>i===tweetIndex?'#fff':color),
+      pointBorderColor:hist.map((_,i)=>i===tweetIndex?color:'transparent'),
+      pointBorderWidth:hist.map((_,i)=>i===tweetIndex?2:0),
+      borderWidth:1.5
+    }]},
+    options:{
+      responsive:true,maintainAspectRatio:false,
+      plugins:{
+        legend:{display:false},
+        tooltip:{
+          callbacks:{
+            label:ctx=>{
+              const label=ctx.parsed.y.toFixed(2);
+              if(ctx.dataIndex===tweetIndex)return `${label} ← ツイート日`;
+              return label;
+            }
+          },
+          backgroundColor:'#12121c',borderColor:'#2a2a3e',borderWidth:1,titleColor:'#888',bodyColor:'#e8e8f0'
+        },
+        annotation:{
+          annotations:tweetIndex>=0?{
+            tweetLine:{
+              type:'line',
+              xMin:tweetIndex,xMax:tweetIndex,
+              borderColor:'rgba(255,255,255,0.3)',
+              borderWidth:1,
+              borderDash:[4,4],
+              label:{content:'ツイート',display:true,position:'start',color:'#888',font:{size:9}}
+            }
+          }:{}
+        }
+      },
+      scales:{
+        x:{grid:{color:'rgba(255,255,255,0.03)'},ticks:{color:'#444',font:{size:9,family:'DM Mono'},maxTicksLimit:5,autoSkip:true}},
+        y:{grid:{color:'rgba(255,255,255,0.03)'},ticks:{color:'#444',font:{size:9,family:'DM Mono'},callback:v=>v.toFixed(1)}}
+      }
+    }
+  });
+}
 function setRange(ticker,r,btn){expandedRange[ticker]=r;document.querySelectorAll('.rb-'+ticker).forEach(b=>b.classList.remove('on'));btn.classList.add('on');const stock=stocks.find(s=>s.ticker===ticker);setTimeout(()=>buildChart(ticker,stock,{1:7,2:30,3:90}[r]),50);}
 function filteredStocks(){return stocks.filter(s=>{const p=priceData[s.ticker];const market=getMarket(s.ticker);if(currentFilter==='all')return true;if(currentFilter==='pos')return s.sentiment==='pos';if(currentFilter==='neg')return s.sentiment==='neg';if(currentFilter==='us')return market==='us';if(currentFilter==='jp')return market==='jp';if(currentFilter==='kr')return market==='kr';if(currentFilter==='up')return p&&p.change>0;if(currentFilter==='down')return p&&p.change<0;return true;});}
 function setFilter(f,btn){currentFilter=f;document.querySelectorAll('.filter-btn').forEach(b=>b.classList.remove('on','pos-on','neg-on'));if(f==='pos')btn.classList.add('pos-on');else if(f==='neg')btn.classList.add('neg-on');else btn.classList.add('on');renderList();}
